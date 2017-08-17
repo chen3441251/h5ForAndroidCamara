@@ -47,7 +47,7 @@ public class UploadImgForH5Activity extends Activity {
     }
 
     /**
-     * Android 6.0以上版本，需求添加运行时权限申请；否则，可能程序崩溃
+     * Android 6.0以上版本，需求添加运行时权限申请；否则，可能程序崩溃11111
      */
     private void initPermissionForCamera() {
         int flag = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
