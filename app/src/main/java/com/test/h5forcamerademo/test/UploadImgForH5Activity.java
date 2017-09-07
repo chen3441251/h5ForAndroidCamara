@@ -17,6 +17,7 @@ import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.FileProvider;
+import android.util.Log;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -31,6 +32,7 @@ import java.io.File;
 public class UploadImgForH5Activity extends Activity {
     private WebView mWebView;
     private String url = "http://liyina91.github.io/liyina/UploadPictures/";
+//    private String url = "http://coredev.ddcash.cn/#/guide?channel=ddq_app";
     private String photoPath;//拍照保存路径
     private final int REQUEST_CODE_TAKE_PHOTO = 1001;//拍照
     private final int REQUEST_FILE_PICKER     = 1002;//选择文件
@@ -81,8 +83,16 @@ public class UploadImgForH5Activity extends Activity {
         mWebView = (WebView) findViewById(R.id.webView);
         WebSettings mSettings = mWebView.getSettings();
         mSettings.setJavaScriptEnabled(true);//开启javascript
-        mSettings.setLoadWithOverviewMode(true);
-        mSettings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.SINGLE_COLUMN);//适应屏幕，内容将自动缩放
+        //设置允许http和https内容混合
+//        if (Build.VERSION.SDK_INT >= 21) {
+//            mSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+//        }
+        mSettings.setDomStorageEnabled(true);//开启DOM
+//        if (Build.VERSION.SDK_INT >= 19) {//加快html网页加载完成速度
+//            mSettings.setLoadsImagesAutomatically(true);
+//        } else {
+//            mSettings.setLoadsImagesAutomatically(false);
+//        }
 
     }
 
@@ -101,6 +111,7 @@ public class UploadImgForH5Activity extends Activity {
          */
         public void openFileChooser(ValueCallback<Uri> filePathCallback) {
             openFileManager();
+//            goToTakePhoto();
             mFilePathCallback4 = filePathCallback;
         }
         /**
@@ -170,6 +181,8 @@ public class UploadImgForH5Activity extends Activity {
                 pickPhotoResult(resultCode, data);
                 break;
             case REQUEST_CODE_TAKE_PHOTO://拍照
+                Log.d("xxx","REQUEST_CODE_TAKE_PHOTO");
+
                 takePhotoResult(resultCode);
                 break;
             default:
@@ -208,6 +221,7 @@ public class UploadImgForH5Activity extends Activity {
     private void takePhotoResult(int resultCode) {
         if (mFilePathCallback != null) {
             if (resultCode == RESULT_OK) {
+                Log.d("xxx","photoPath=="+photoPath);
                 Uri uri = Uri.fromFile(new File(photoPath));
                 mFilePathCallback.onReceiveValue(new Uri[]{uri});
             } else {
