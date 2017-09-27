@@ -2,6 +2,7 @@ package com.test.h5forcamerademo.test;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -14,10 +15,12 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
+import android.support.v7.app.AlertDialog;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -117,7 +120,15 @@ public class UploadImgForH5Activity extends Activity {
         boolean bsdcard = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED;
         //如果camera或者读取权限没有授权
         if (Build.VERSION.SDK_INT >= 23 && (bcamera || bsdcard)) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUESTCODE_CAMERA);
+            //用户上一次拒绝后这一次提醒用户为什么需要这个权限
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
+                showPermissionTips("只有开启camera权限才能拍照");
+            } else if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                showPermissionTips("只有开启sdcard才能拍照");
+            } else {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUESTCODE_CAMERA);
+
+            }
         } else {
             //已经授权，直接调用相机
             openCamera();
@@ -132,32 +143,30 @@ public class UploadImgForH5Activity extends Activity {
                 if (grantResults.length >= 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                     openCamera();
                 } else {
+                    //如果拒绝勾选了不再提示
+                    boolean b_camera = !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA);
+                    boolean b_sdcard = !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
                     //如果用户拒绝了权限申请并且点击了不再提示
                     if (grantResults[0] == PackageManager.PERMISSION_DENIED && grantResults[0] == PackageManager.PERMISSION_DENIED) {
                         //如果用户权限都拒绝且都不提示
-                        if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) ||
-                                !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
-                            Toast.makeText(this, "不开启拍照权限和读写权限无法完成以下功能,请去应用权限管理开启权限", Toast.LENGTH_SHORT).show();
+                        if (b_camera||b_sdcard ) {
+                            startAppSettings("不开启拍照权限和读写权限无法完成以下功能,请去应用权限管理开启权限");
                         } else {
                             Toast.makeText(this, "请授权开启拍照权限和读写权限", Toast.LENGTH_SHORT).show();
                         }
                     } else if (grantResults[1] == PackageManager.PERMISSION_DENIED) {
-                        if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                            //展示授权说明
-                            Toast.makeText(this, "不开启读写权限就无法保存图片,请去应用权限管理开启权限", Toast.LENGTH_SHORT).show();
-
+                        if (b_sdcard) {
+                            startAppSettings("不开启读写权限就无法保存图片,请去应用权限管理开启权限");
                         } else {
                             Toast.makeText(this, "请授权开启读写权限", Toast.LENGTH_SHORT).show();
                         }
                     } else {
-                        if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
-                            //展示授权说明
-                            Toast.makeText(this, "不开启camera权限就无法使用拍照,请去应用权限管理开启权限", Toast.LENGTH_SHORT).show();
+                        if (b_camera) {
+                            startAppSettings("不开启camera权限就无法使用拍照,请去应用权限管理开启权限");
                         } else {
                             Toast.makeText(this, "请授权开启相机权限", Toast.LENGTH_SHORT).show();
                         }
                     }
-
                     if (mFilePathCallback != null) {
                         mFilePathCallback.onReceiveValue(null);
                         mFilePathCallback = null;
@@ -169,7 +178,41 @@ public class UploadImgForH5Activity extends Activity {
 
 
     }
+    //应用设置界面
+    private void startAppSettings(String message) {
+        new AlertDialog.Builder(this)
+                .setTitle("温馨提示")
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                        Intent intent = new Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                        startActivity(intent);
+                    }
+                })
+                .show();
 
+    }
+    //应用设置界面
+    private void showPermissionTips(String message) {
+        new AlertDialog.Builder(this)
+                .setTitle("温馨提示")
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                        ActivityCompat.requestPermissions(UploadImgForH5Activity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUESTCODE_CAMERA);
+                    }
+                })
+                .show();
+
+    }
     /**
      * 判断系统中是否存在可以启动的相机应用
      *
