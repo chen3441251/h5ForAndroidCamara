@@ -13,7 +13,6 @@ import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
@@ -21,10 +20,13 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
+import android.util.Base64;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import com.test.h5forcamerademo.R;
@@ -42,8 +44,9 @@ import static android.os.Build.VERSION_CODES.M;
 
 public class UploadImgForH5Activity extends Activity {
     private WebView mWebView;
-    private String url = "http://liyina91.github.io/liyina/UploadPictures/";
-    //        private String url = "http://coretest.ddcash.cn/#/guide?channel=ddq_app";
+        private String url = "http://liyina91.github.io/liyina/UploadPictures/";
+//        private String url = "https://coretest.ddcash.cn/#/guide?channel=ddq_app";
+//    private String url = "http://10.138.25.18:9000/#/guide?channel=ddq_app";
     private String photoPath;//拍照保存路径
     private final int REQUEST_CODE_TAKE_PHOTO       = 1001;//拍照
     private final int PERMISSION_REQUESTCODE_CAMERA = 1002;//选择文件
@@ -62,6 +65,8 @@ public class UploadImgForH5Activity extends Activity {
     private void initData() {
         mWebView.loadUrl(url);
         mWebView.setWebChromeClient(new MyWebChromeClient());
+        mWebView.setWebViewClient(new WebViewClient());
+
     }
 
     private void initView() {
@@ -69,6 +74,23 @@ public class UploadImgForH5Activity extends Activity {
         WebSettings mSettings = mWebView.getSettings();
         mSettings.setJavaScriptEnabled(true);//开启javascript
         mSettings.setDomStorageEnabled(true);//开启DOM
+        mWebView.addJavascriptInterface(new JsInterface(), "Android");
+    }
+
+    /**
+     * 支持android4.4/4.4.1/4.4.2版本
+     */
+    private String photoType;
+
+    private class JsInterface {
+
+        @JavascriptInterface
+        /**
+         * type: front身份证正面  back身份证背面 similarity_person手持
+         * */
+        public void openCamera4K() {
+            goToTakePhoto();
+        }
     }
 
     public class MyWebChromeClient extends WebChromeClient {
@@ -85,7 +107,6 @@ public class UploadImgForH5Activity extends Activity {
          * 过时的方法：openFileChooser
          */
         public void openFileChooser(ValueCallback<Uri> filePathCallback) {
-            //            openFileManager();
             goToTakePhoto();
             mFilePathCallback = filePathCallback;
         }
@@ -117,16 +138,13 @@ public class UploadImgForH5Activity extends Activity {
 
     private void checkPermission() {
         boolean bcamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED;
-        boolean bsdcard = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED;
         //如果camera或者读取权限没有授权
-        if (Build.VERSION.SDK_INT >= 23 && (bcamera || bsdcard)) {
+        if (Build.VERSION.SDK_INT >= 23 && (bcamera)) {
             //用户上一次拒绝后这一次提醒用户为什么需要这个权限
             if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
                 showPermissionTips("只有开启camera权限才能拍照");
-            } else if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                showPermissionTips("只有开启sdcard才能拍照");
-            } else {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUESTCODE_CAMERA);
+            }  else {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUESTCODE_CAMERA);
 
             }
         } else {
@@ -140,32 +158,15 @@ public class UploadImgForH5Activity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode) {
             case PERMISSION_REQUESTCODE_CAMERA:
-                if (grantResults.length >= 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                if (grantResults.length >= 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED ) {
                     openCamera();
                 } else {
                     //如果拒绝勾选了不再提示
-                    boolean b_camera = !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA);
-                    boolean b_sdcard = !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                    //如果用户拒绝了权限申请并且点击了不再提示
-                    if (grantResults[0] == PackageManager.PERMISSION_DENIED && grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                        //如果用户权限都拒绝且都不提示
-                        if (b_camera||b_sdcard ) {
-                            startAppSettings("不开启拍照权限和读写权限无法完成以下功能,请去应用权限管理开启权限");
-                        } else {
-                            Toast.makeText(this, "请授权开启拍照权限和读写权限", Toast.LENGTH_SHORT).show();
-                        }
-                    } else if (grantResults[1] == PackageManager.PERMISSION_DENIED) {
-                        if (b_sdcard) {
-                            startAppSettings("不开启读写权限就无法保存图片,请去应用权限管理开启权限");
-                        } else {
-                            Toast.makeText(this, "请授权开启读写权限", Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        if (b_camera) {
-                            startAppSettings("不开启camera权限就无法使用拍照,请去应用权限管理开启权限");
-                        } else {
-                            Toast.makeText(this, "请授权开启相机权限", Toast.LENGTH_SHORT).show();
-                        }
+                    if(!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)){
+                        //权限已经被拒绝不在提示了
+                        startAppSettings("不开启camera权限就无法使用拍照,请去应用权限管理开启权限");
+                    }else {
+                        Toast.makeText(this, "请授权开启相机权限", Toast.LENGTH_SHORT).show();
                     }
                     if (mFilePathCallback != null) {
                         mFilePathCallback.onReceiveValue(null);
@@ -178,6 +179,7 @@ public class UploadImgForH5Activity extends Activity {
 
 
     }
+
     //应用设置界面
     private void startAppSettings(String message) {
         new AlertDialog.Builder(this)
@@ -197,6 +199,7 @@ public class UploadImgForH5Activity extends Activity {
                 .show();
 
     }
+
     //应用设置界面
     private void showPermissionTips(String message) {
         new AlertDialog.Builder(this)
@@ -207,12 +210,13 @@ public class UploadImgForH5Activity extends Activity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         dialog.dismiss();
-                        ActivityCompat.requestPermissions(UploadImgForH5Activity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUESTCODE_CAMERA);
+                        ActivityCompat.requestPermissions(UploadImgForH5Activity.this, new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUESTCODE_CAMERA);
                     }
                 })
                 .show();
 
     }
+
     /**
      * 判断系统中是否存在可以启动的相机应用
      *
@@ -232,11 +236,15 @@ public class UploadImgForH5Activity extends Activity {
         }
         try {
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            mPhotoFile = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
-            if (!mPhotoFile.exists()) {
-                mPhotoFile.mkdirs();
+            mPhotoFile = new File(getExternalCacheDir(), System.currentTimeMillis() + ".jpg");
+            try {
+                if (mPhotoFile.exists()) {
+                    mPhotoFile.delete();
+                }
+                mPhotoFile.createNewFile();
+            } catch (Exception e) {
+
             }
-            mPhotoFile = new File(mPhotoFile, System.currentTimeMillis() + ".jpg");
             photoPath = mPhotoFile.getAbsolutePath();
             if (Build.VERSION.SDK_INT > 23) {
                 /**Android 7.0以上的方式**/
@@ -259,12 +267,19 @@ public class UploadImgForH5Activity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK) {
+            if (mFilePathCallback != null) {
+                mFilePathCallback.onReceiveValue(null);
+                mFilePathCallback = null;
+            }
+            return;
+        }
         /**
          * 处理页面返回或取消选择结果
          */
         switch (requestCode) {
             case REQUEST_CODE_TAKE_PHOTO://拍照
-                takePhotoResult(resultCode);
+                takePhotoResult();
                 break;
             default:
                 break;
@@ -272,28 +287,48 @@ public class UploadImgForH5Activity extends Activity {
     }
 
 
-    private void takePhotoResult(int resultCode) {
+    private void takePhotoResult() {
         if (mFilePathCallback != null) {
-            if (resultCode == RESULT_OK) {
-                try {
-                    compressAndSaveBitmap(mPhotoFile);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                if (Build.VERSION.SDK_INT > 19) {
-                    mFilePathCallback.onReceiveValue(new Uri[]{mContentUri});
-                } else {
-                    mFilePathCallback.onReceiveValue(mContentUri);
-                }
+            try {
+                compressAndSaveBitmap(mPhotoFile);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            if (Build.VERSION.SDK_INT > 19) {
+                mFilePathCallback.onReceiveValue(new Uri[]{mContentUri});
             } else {
-                mFilePathCallback.onReceiveValue(null);
-                mFilePathCallback = null;
+                mFilePathCallback.onReceiveValue(mContentUri);
             }
 
+        } else {
+            /**
+             * js交互支持android4.4/4.4.1/4.4.2等版本
+             * */
+            Bitmap bitmap = null;
+            try {
+                bitmap = compressAndSaveBitmap(mPhotoFile);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            final Bitmap finalBitmap = bitmap;
+            mWebView.post(new Runnable() {
+                @Override
+                public void run() {
+                    mWebView.loadUrl("javascript:uploadImageCallBack('" + bitmaptoString(finalBitmap) + "')");
+                }
+            });
         }
 
     }
 
+    public static String bitmaptoString(Bitmap bitmap) {
+        String string = null;
+        ByteArrayOutputStream bStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, bStream);
+        byte[] bytes = bStream.toByteArray();
+        string = Base64.encodeToString(bytes, Base64.NO_WRAP);
+        return string;
+    }
 
     /**
      * 通过uri获取图片并进行压缩
@@ -440,5 +475,6 @@ public class UploadImgForH5Activity extends Activity {
         }
         return returnBm;
     }
+
 
 }
