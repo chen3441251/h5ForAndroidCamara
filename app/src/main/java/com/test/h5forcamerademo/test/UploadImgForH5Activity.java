@@ -45,8 +45,6 @@ import static android.os.Build.VERSION_CODES.M;
 public class UploadImgForH5Activity extends Activity {
     private WebView mWebView;
         private String url = "http://liyina91.github.io/liyina/UploadPictures/";
-//        private String url = "https://coretest.ddcash.cn/#/guide?channel=ddq_app";
-//    private String url = "http://10.138.25.18:9000/#/guide?channel=ddq_app";
     private String photoPath;//拍照保存路径
     private final int REQUEST_CODE_TAKE_PHOTO       = 1001;//拍照
     private final int PERMISSION_REQUESTCODE_CAMERA = 1002;//选择文件
